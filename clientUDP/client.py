@@ -2,6 +2,7 @@ from cryptography.fernet import Fernet
 import socket
 import os
 import tqdm
+import select
 
 
 HOST = socket.gethostname()
@@ -13,37 +14,26 @@ SEPARATOR = "<SEPARATOR>"
 class Client:
 
     def __init__(self):
-        pass
-
-    #Generar clave
-    def __generate_key(self):
-        key = Fernet.generate_key()
-        return key
-
-
-    #Guardar clave en un fichero
-    def save_key_into_a_file(self):
-        file_name = "key_file.key"
-        file_path = os.getcwd()
-        path = os.path.dirname(file_path)
-        complete_name = os.path.join(path,file_name)
-
-        key = self.__generate_key()
-
-        with open(complete_name,"wb") as key_file:
-            key_file.write(key)
+        self.timeout = 3
     
 
-    def send_file(self):
+    def make_request(self,filename):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as socket_udp:
-            message = b'Hola mundo'
+            
+            socket_udp.sendto(filename,(HOST,PORT))
+            
+            with open(filename,"wb") as file:
+                while True:
+                    ready = select.select([socket_udp], [], [], self.timeout)
 
-            sent = socket_udp.sendto(message, (HOST,PORT))
-            data,server = socket_udp.recvfrom(BUFFER_SIZE)
-            print(f'mensaje recibido desde servidor: {str(data)}')
-
+                    if ready[0]:
+                        bytes_read ,server = socket_udp.recvfrom(BUFFER_SIZE)
+                        file.write(bytes_read)
+                    else:
+                        print(f"Archivo {filename} recibido")
+                        break
+            
         
-
 if __name__ == '__main__':
     client = Client()
-    client.send_file()
+    client.make_request(b"libro.pdf")
