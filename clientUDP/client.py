@@ -64,11 +64,11 @@ class Client:
                             progress.update(len(bytes_read))
                         else:
                             print(f"Archivo {filename} recibido")
-                            self.__decrypt_file(filename)
                             break
+                self.__decrypt_file(filename)
             else:
                 print(f"Servidor no puede enviar archivo inexistente {filename}")
-                
+
 
           
 if __name__ == '__main__':
