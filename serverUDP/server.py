@@ -16,6 +16,7 @@ class ServerUDP:
     def __init__(self):
         self.socket = socket.socket(socket.AF_INET , socket.SOCK_DGRAM)
         self.socket.bind((HOST,PORT))
+        self.__save_key_into_a_file()
 
 
     def encrypt_file(self,filename):
@@ -37,8 +38,36 @@ class ServerUDP:
            print("Fichero a encriptar no existe")
 
 
-    def decrypt_file(self,filename):
-        #obtengo la clave
+    def __generate_key(self):
+        key = Fernet.generate_key()
+        return key
+
+    def __save_key_into_a_file(self):
+        file_name = "key_file.key"
+        file_path = os.getcwd()
+        path = os.path.dirname(file_path)
+        complete_name = os.path.join(path,file_name)
+
+        key = self.__generate_key()
+
+        with open(complete_name,"wb") as key_file:
+            key_file.write(key)
+
+
+    def __load_key(self):
+        file_name = "key_file.key"
+        file_path = os.getcwd()
+        path = os.path.dirname(file_path)
+        complete_name = os.path.join(path,file_name)
+
+        key = ""
+        with open(complete_name,"rb") as key_file:
+            key = key_file.read()
+        return key
+
+
+    def __decrypt_file(self,filename):
+        #obtener la clave
         key = self.__load_key()
 
         fernet = Fernet(key)
@@ -70,6 +99,7 @@ class ServerUDP:
     
     
     def __send_file(self,filename,address):
+
         filesize = self.__get_file_size(filename)
         progress = tqdm.tqdm(range(filesize) , f"Receiving {filename}" , unit="B",unit_scale=True,unit_divisor=1024)
         
@@ -85,7 +115,7 @@ class ServerUDP:
 
                 progress.update(len(bytes_read))
     
-    
+
     def handle_request(self):
         while True:
             data , address = self.socket.recvfrom(BUFFER_SIZE)
@@ -99,12 +129,16 @@ class ServerUDP:
                     filesize = self.__get_file_size(filename)
                     filesize = self.__convert_int_to_bytes(filesize)
 
-                    self.socket.sendto(filesize, address)
+                    self.socket.sendto(filesize, address) #envia tamaño del fichero de forma anticipada
 
-                    self.__send_file(filename,address)      
+                    self.encrypt_file(filename)
+                    self.__send_file(filename,address)  
+                    self.__decrypt_file(filename)    
                 else:
-                    print(f"Archivo solicitado {str(filename)} no existe")
+                    print(f"Archivo solicitado {filename} no existe")
+                    self.socket.sendto(b"", address)
                 break
+
 
 if __name__ == '__main__':
     server = ServerUDP()
