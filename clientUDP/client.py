@@ -4,7 +4,6 @@ import os
 import tqdm
 import select
 
-
 HOST = socket.gethostname()
 PORT = 8080
 BUFFER_SIZE = 4096
@@ -20,8 +19,14 @@ class Client:
     def make_request(self,filename):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as socket_udp:
             
-            socket_udp.sendto(filename,(HOST,PORT))
+            socket_udp.sendto(filename,(HOST,PORT)) #Enviamos el nombre del archivo
             
+            filename = filename.decode('utf-8')
+
+            filesize , _ = socket_udp.recvfrom(BUFFER_SIZE) #recibimos el tamaño del archivo
+            filesize = int(filesize.decode('utf-8'))
+
+            progress = tqdm.tqdm(range(filesize) , f"Receiving {filename}" , unit="B",unit_scale=True,unit_divisor=1024)
             with open(filename,"wb") as file:
                 while True:
                     ready = select.select([socket_udp], [], [], self.timeout)
@@ -29,11 +34,12 @@ class Client:
                     if ready[0]:
                         bytes_read ,server = socket_udp.recvfrom(BUFFER_SIZE)
                         file.write(bytes_read)
+                        progress.update(len(bytes_read))
                     else:
                         print(f"Archivo {filename} recibido")
                         break
             
-        
+            
 if __name__ == '__main__':
     client = Client()
     client.make_request(b"libro.pdf")
